@@ -1,0 +1,156 @@
+---
+title: "Statistical Inference Course Project"
+author: "Jack Kramer"
+date: "March 27, 2017"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+
+```{r, include=FALSE}
+setwd("C:\\Users\\kcaj2\\Desktop\\Coursera\\Statistical Inference")
+library(ggplot2)
+
+```
+
+#Part 1
+
+##Simulation Exercise
+
+In this project, I investigate the Exponential Distribution and compare it with the Central Limit Theorem. 
+
+```{r}
+lambda = 0.2 ##lambda, the rate parameter, explains both the mean (1/lambda) and the standard deviation (also 1/lambda)
+n = 40 ##n is the number of observations we will observe
+simulations = 10000 ##simulations is how many simulations we will run on n observations.
+
+
+simulation.data.frame <- data.frame()
+
+for(i in 1:simulations){
+    rexpdata <-rexp(n,lambda)
+    simulation.data.frame[i,1] <- mean(rexpdata)
+    simulation.data.frame[i,2] <- sd(rexpdata)
+    i=i+1
+}
+```
+
+```{r, include=FALSE}
+colnames(simulation.data.frame) <- c("Mean","Standard Deviation")
+```
+We should expect to see means and standard deviations around 5 based on our Lambda = 0.2. 
+```{r}
+
+head(simulation.data.frame)
+```
+Above shows how that appears to be the case.
+
+###1) Show the sample mean and compare it to the theoretical mean of the distribution.
+
+```{r question 1}
+xbar <- mean(simulation.data.frame$Mean) ##sample mean of all our simulations.
+mu <- 1/lambda ##Theoretical mean as defined in the Exponential Distribution.
+
+writeLines(paste("Sample mean: \t\t", xbar,"\nTheoretical mean:\t", mu))
+```
+```{r question 1 graph}
+ggplot(data = simulation.data.frame, aes(simulation.data.frame$Mean)) + 
+    geom_histogram(bins = 30) + 
+    geom_vline(xintercept = xbar, colour = "blue")
+
+```
+
+###2)Show how variable the sample is (via variance) and compare it to the theoretical variance of the distribution.
+```{r question 2}
+s <- sd(simulation.data.frame$Mean) ##sample standard deviation of our means.
+sigma <- (1/lambda)/sqrt(n) ##theoretical standard deviation as defined in the Exponential Distribution.
+
+
+writeLines(paste("Sample std. dev:\t\t\t", s,"\nTheoretical std. dev:\t", sigma))
+```
+
+###3)Show that the distribution is approximately normal
+
+```{r}
+ggplot(data = simulation.data.frame, aes(simulation.data.frame$Mean)) + 
+    geom_histogram(aes(y = ..density..),bins = 30) + 
+    stat_function(fun = dnorm, colour = "blue", args = list(mean=mu, sd=sigma))
+
+```
+
+#Part 2
+
+##Basic Inferential Data Analysis
+
+We will be examining the ToothGrowth data set that is included in the R Datasets package 
+
+
+###Summary of the Data
+```{r}
+library(datasets)
+summary(ToothGrowth)
+```
+
+The data set examines the tooth length of 60 different guinea pigs after being treated with vitamin C.
+Tooth length, measured in *len* column, is the length of odontoblasts.
+The delivery method, denoted in column *supp*, either represents ascorbic acid (VC), or orange juice (OJ).
+The final column, *dose*, displays the dosage the animal received in mg/day.
+
+Below is a box-plot showing the spread of the data separated by the delivery method *supp*.
+```{r}
+ggplot(data = ToothGrowth, aes(x = dose, y = len)) +
+    geom_boxplot(aes(fill = factor(dose)))+
+    facet_grid(~supp)
+
+```
+
+
+As shown above, there is a clear relationship between dosage and tooth length. The higher the dosage, the longer the tooth. Numericized below:
+```{r}
+with(ToothGrowth, tapply(len,dose,mean))
+
+```
+
+###Testing Hunches
+
+To confirm this hunch we will test the hypothesis that mean(len|dose=1.0)=mean(len|dose=2.0) without using R's t.test function.
+
+```{r}
+xbar.t.test <- mean(ToothGrowth$len[ToothGrowth$dose==2.0]-ToothGrowth$len[ToothGrowth$dose==1.0])
+s.t.test <- sd(ToothGrowth$len[ToothGrowth$dose==2.0]-ToothGrowth$len[ToothGrowth$dose==1.0])
+n <- length(ToothGrowth$len[ToothGrowth$dose==2.0]-ToothGrowth$len[ToothGrowth$dose==1.0])
+Ha <- 0 ##alternative hypothesis
+
+(xbar.t.test-Ha)/(s.t.test/sqrt(n))
+qt(0.975,df = n-1) ##0.975 because two sided test
+
+```
+Since our T-score is greater that our rejection score, we reject the null hypothesis that the difference of the two doses is the same. This leads us to believe that they are indeed different -- higher doses do increase tooth length.
+
+
+Another examination from the box plot above suggests that Orange Juice (OJ) is more effective at increasing tooth length, most notably in lower doses.
+```{r}
+
+with(ToothGrowth, tapply(len,supp,mean))
+```
+Above shows that in this data set, the mean length for *OJ* is longer than the mean length of *VC*. To take this analysis one step further, we will now test the hypothesis that mean(*OJ*) and mean(*VC*) are the same using R's t.test function.
+```{r}
+t.test(len~supp,data = ToothGrowth)
+
+```
+
+There are two things to examine: the p-value and the confidence interval.
+
+Starting with the p-value, since it exceeds 0.05, our level of confidence, we fail to reject the null hypothesis that mean(*OJ*)-mean(*VC*)=0. 
+
+Similarly, to reject or fail to reject our null with confidence intervals, you examine if the interval contains 0. Since it does contains 0, we fail to reject the null hypothesis that mean(*OJ*)-mean(*VC*)=0
+
+
+###Conclusion
+We rejected the null that different doses have the same effect on tooth length. This implies that a higher dose leads to a longer tooth. 
+
+We fail to reject the null that OJ and VC have the same effect. This implies that the delivery method is irrelevant between these two suppliers.
+
+The above assumes that the mean of the difference between our tested values are normally distributed. 
